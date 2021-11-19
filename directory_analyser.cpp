@@ -4,9 +4,49 @@
 #include <iostream>
 #include <filesystem>
 
+namespace fs = std::filesystem;
+
+class Analyser
+{
+    fs::path dir_path;
+
+public:
+    Analyser(fs::path path) : dir_path(path)
+    {
+    }
+
+    int numberOfFiles()
+    {
+        int count = 0;
+        for (auto& p : fs::recursive_directory_iterator(dir_path))
+        {
+            if (p.is_regular_file())
+            {
+                std::cout << p.path() << '\n';
+                ++count;
+            }
+        }
+        return count;
+    }
+};
+
 int main()
 {
-    std::cout << "Hello World!\n";
+    fs::path dirpath;
+
+    do
+    {
+        std::cout << "Put a path of a directory you want to analyse, or \"0\" if you want to exit:\n";
+        std::cin >> dirpath;
+        if (dirpath == "0")
+            return 0;
+    } while (!fs::is_directory(dirpath));
+    
+    Analyser a(dirpath);
+    int c = a.numberOfFiles();
+    std::cout << c << "\n";
+
+    return 0;
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
