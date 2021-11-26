@@ -3,30 +3,87 @@
 
 #include <iostream>
 #include <filesystem>
+#include <string>
+#include <regex>
+#include <fstream>
+#include <sstream>
 
-namespace fs = std::filesystem;
+using namespace std;
+namespace fs = filesystem;
 
 class Analyser
 {
     fs::path dir_path;
+
+    int files_number = 0;
+    int lines_number = 0;
+    int words_number = 0;
+    int letters_number = 0;
+
+    void numberOfFiles()
+    {
+        ++files_number;
+    }
+
+    void numberOfLines(fs::directory_entry p)
+    {
+        ifstream file(p);
+        string line;
+        while (getline(file, line))
+        {
+            ++lines_number;
+            numberOfWords(line);
+        }
+    }
+
+    void numberOfWords(string line)
+    {
+        istringstream words(line);
+        string word;
+        regex pattern(".*[[:alpha:]].*");
+
+        while (words >> word)
+        {
+            if (regex_match(word, pattern))
+            {
+                ++words_number;
+                numberOfLetters(word);
+            }
+        };
+    }
+
+    void numberOfLetters(string word)
+    {
+        for (char a : word)
+        {
+            if (isalpha(a))
+            {
+                ++letters_number;
+            }
+        }
+    }
 
 public:
     Analyser(fs::path path) : dir_path(path)
     {
     }
 
-    int numberOfFiles()
+    void analise()
     {
-        int count = 0;
         for (auto& p : fs::recursive_directory_iterator(dir_path))
         {
             if (p.is_regular_file())
             {
-                std::cout << p.path() << '\n';
-                ++count;
+                numberOfFiles();
+                numberOfLines(p);
             }
         }
-        return count;
+
+        cout << "Directory: " << dir_path << endl
+             << "Number of files: " << files_number << endl
+             << "Number of lines: " << lines_number << endl
+             << "Number of words: " << words_number << endl
+             << "Number of letters: " << letters_number << endl;
     }
 };
 
@@ -36,26 +93,14 @@ int main()
 
     do
     {
-        std::cout << "Put a path of a directory you want to analyse, or \"0\" if you want to exit:\n";
-        std::cin >> dirpath;
+        cout << "Put a path of a directory you want to analyse, or \"0\" if you want to exit:\n";
+        cin >> dirpath;
         if (dirpath == "0")
             return 0;
     } while (!fs::is_directory(dirpath));
     
     Analyser a(dirpath);
-    int c = a.numberOfFiles();
-    std::cout << c << "\n";
+    a.analise();
 
     return 0;
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
