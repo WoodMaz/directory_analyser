@@ -1,15 +1,28 @@
-// directory_analyser.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
 #include <iostream>
 #include <filesystem>
 #include <string>
 #include <regex>
 #include <fstream>
 #include <sstream>
+#include <thread>
+#include <mutex>
+
+#include "threadpool.h"
+
+#define MUL 1 // uncomment this if you want multithreading
 
 using namespace std;
 namespace fs = filesystem;
+
+bool isLetter(char a)
+{
+    const string alphabet = "QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm";
+    if (alphabet.find(a))
+    {
+        return true;
+    }
+    return false;
+}
 
 class Analyser
 {
@@ -19,6 +32,13 @@ class Analyser
     int lines_number = 0;
     int words_number = 0;
     int letters_number = 0;
+
+#ifdef MUL
+    thread_pool pool;
+#endif
+    mutex m_lines;
+    mutex m_words;
+    mutex m_letters;
 
     void numberOfFiles()
     {
@@ -31,7 +51,9 @@ class Analyser
         string line;
         while (getline(file, line))
         {
+            m_lines.lock();
             ++lines_number;
+            m_lines.unlock();
             numberOfWords(line);
         }
     }
@@ -46,8 +68,10 @@ class Analyser
         {
             if (regex_match(word, pattern))
             {
+                m_words.lock();
                 ++words_number;
-                numberOfLetters(word);
+                m_words.unlock();
+               numberOfLetters(word);
             }
         };
     }
@@ -56,29 +80,40 @@ class Analyser
     {
         for (char a : word)
         {
-            if (isalpha(a))
-            {
-                ++letters_number;
-            }
-        }
+			if (a > 0 && isalpha(a))
+			{
+				m_letters.lock();
+				++letters_number;
+				m_letters.unlock();
+			}
+		}
     }
 
+    
 public:
     Analyser(fs::path path) : dir_path(path)
     {
     }
 
-    void analise()
+    void analyse()
     {
+        
+
         for (auto& p : fs::recursive_directory_iterator(dir_path))
         {
             if (p.is_regular_file())
             {
                 numberOfFiles();
+#ifdef MUL
+                pool.push_task(bind(&Analyser::numberOfLines, this, p));
+#else
                 numberOfLines(p);
+#endif
             }
         }
-
+#ifdef MUL
+        pool.wait_for_tasks();
+#endif
         cout << "Directory: " << dir_path << endl
              << "Number of files: " << files_number << endl
              << "Number of lines: " << lines_number << endl
@@ -100,7 +135,7 @@ int main()
     } while (!fs::is_directory(dirpath));
     
     Analyser a(dirpath);
-    a.analise();
+    a.analyse();
 
     return 0;
 }
